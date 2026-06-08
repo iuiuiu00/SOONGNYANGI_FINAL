@@ -1,0 +1,466 @@
+let coopsketBgm;
+function preload() {
+  soundFormats('mp3');
+  bgm = loadSound('Void Lantern (1).mp3'); 
+  coopsketBgm = loadSound('Ending.mp3');
+  schoolImg = loadImage('KakaoTalk_Photo_2026-06-09-00-17-16-1.jpeg');
+}
+
+let cnv;
+function setup() {
+
+  cnv = createCanvas(W, H);
+
+  pixelDensity(1);
+  noSmooth();
+  textFont('monospace');
+
+  MBX = W - 36;
+}
+
+function draw() {
+  // ── 타이틀 화면
+  if (scene === 'title') {
+    drawTitle();
+    return;
+  }
+
+  // 음악 재생 (타이틀 넘어가면 시작)
+  if (bgm && !bgm.isPlaying() && !csCleared) {
+    bgm.loop();
+  }
+
+  seqTimer++;
+
+  // ── 인트로 스토리 ──────────────────────────────────────
+  if (scene === 'intro_story') {
+    drawIntroStory();
+    return;
+  }
+
+  // ── 신양관 ★ ──────────────────────────────────────────────
+  if (scene === 'sinyangkwan') {
+    if (!menuOpen) updateSinyangkwan();
+    drawSinyangkwan();
+    drawInventoryUI();
+    if (scene !== 'title') {
+      drawMenuBtn();
+      if (menuOpen) drawMenuPopup();
+    }
+    return;
+  }
+
+  // 신양관 탈출 후 blackout
+  if (scene === 'sn_blackout') {
+    drawSnBlackout();
+    if (scene !== 'title') {
+      drawMenuBtn();
+      if (menuOpen) drawMenuPopup();
+    }
+    return;
+  }
+
+  // 신양관 탈출 후 unlock 아이콘 페이드 + 독백
+  if (scene === 'sn_unlock') {
+    background(0);
+    snUnlockTimer++;
+
+    // Phase 1: 검은 배경에서 unlock 아이콘 페이드인 (0-30), 유지 (30-150), 페이드아웃 (150-180)
+    let iconAlpha = 255;
+    if (snUnlockTimer < 30) {
+      iconAlpha = map(snUnlockTimer, 0, 30, 0, 255);
+    } else if (snUnlockTimer < 150) {
+      iconAlpha = 255;
+    } else if (snUnlockTimer < 180) {
+      iconAlpha = map(snUnlockTimer, 150, 180, 255, 0);
+    } else {
+      iconAlpha = 0;
+    }
+
+    // Draw unlock icon if alpha > 0
+    if (iconAlpha > 0) {
+      fill(100, 220, 100, iconAlpha);
+      textSize(48);
+      textAlign(CENTER, CENTER);
+      text('🔓', W / 2, H / 2 - 20);
+    }
+
+    // Phase 2: 독백 '앞이 하나도 안보여...' 시작 (타이밍: 180부터)
+    for (let i = 0; i < snUnlockLines.length; i++) {
+      let line = snUnlockLines[i];
+      
+      if (snUnlockTimer < 180 + line.d)
+        continue;
+
+      let t = snUnlockTimer - (180 + line.d);
+      let a = 255;
+
+      if (t < 30)
+        a = map(t, 0, 30, 0, 255);
+
+      fill(200, 196, 188, a);
+      textSize(14);
+      textAlign(CENTER, CENTER);
+      text(line.text, W / 2, H / 2 + 40);
+    }
+
+    // Phase 3: 타이밍 완료 후 corridor로 전환
+    if (snUnlockTimer >= 350) {
+      snUnlockTimer = 0;
+      scene = 'corridor';
+      initCorReturn();
+      fadingTo = 'corridor';
+      fadeAlpha = 0;
+    }
+
+    if (scene !== 'title') {
+      drawMenuBtn();
+      if (menuOpen) drawMenuPopup();
+    }
+    return;
+  }
+
+  // ── 인트로들
+  if (scene === 'intro_location') {
+    background(0);
+    
+    let a = 255;
+    if (seqTimer < 30)
+      a = map(seqTimer, 0, 30, 0, 255);
+    
+    if (seqTimer > 150)
+      a = map(seqTimer, 150, 180, 255, 0);
+
+    fill(200,196,188,a);
+    textSize(18);
+    textAlign(CENTER,CENTER);
+    text('조만식기념관', W/2, H/2);
+
+    if (seqTimer >= 180) {
+      scene = 'corridor';
+      seqTimer = 0;
+      cat.x = 140;
+      cat.y = floorY - 32;
+    }
+    if (scene !== 'title') {
+      drawMenuBtn();
+      if (menuOpen) drawMenuPopup();
+    }
+    return;
+  }
+
+  if (scene === 'intro_cls') {
+    background(0);
+    
+    let a = 255;
+    if (seqTimer < 40)
+      a = map(seqTimer, 0, 40, 0, 255);
+    
+    if (seqTimer > 260)
+      a = map(seqTimer, 260, 300, 255, 0);
+
+    fill(200,196,188,a);
+    textSize(14);
+    textAlign(CENTER,CENTER);
+    text('저기 앞에 열쇠다', W/2, H/2);
+
+    if (seqTimer >= 300) {
+      scene = 'fadein';
+      fadingTo = 'classroom';
+      fadeAlpha = 255;
+    }
+    if (scene !== 'title') {
+      drawMenuBtn();
+      if (menuOpen) drawMenuPopup();
+    }
+    return;
+  }
+
+  if (scene === 'pit_exclaim') {
+    background(0);
+    
+    let a = 255;
+    
+    if (seqTimer < 30) 
+      a = map(seqTimer, 0, 30, 0, 255);
+
+    if (seqTimer > 260) 
+      a = map(seqTimer, 260, 300, 255, 0);
+
+    fill(220,35,35,a);
+    textSize(52);
+    textAlign(CENTER,CENTER);
+    text('!!', W/2, H/2);
+
+    if (seqTimer >= 300) {
+      scene = 'intro_cs';
+      seqTimer = 0;
+    }
+    return;
+  }
+
+  if (scene === 'intro_cs') {
+    background(175,173,170);
+    
+    for(let y = 0; y < H; y++) {
+      fill(185, 183, 180, map(y,0,H,35,0));
+      rect(0, y, W, 1);
+    }
+
+    let a = 255;
+    
+    if (seqTimer < 40)
+      a = map(seqTimer, 0, 40, 0, 255);
+    
+    if (seqTimer > 260) 
+      a = map(seqTimer, 260, 300, 255, 0);
+
+    fill(50,48,46,a);
+    textSize(14);
+    textAlign(CENTER,CENTER);
+    text('여기서 물건을 들고 가볼까?', W/2, H/2);
+
+    if (seqTimer >= 300) {
+      initCs();
+      scene = 'fadein';
+      fadingTo = 'coopsket';
+      fadeAlpha = 255;
+      seqTimer = 0;
+    }
+    if (scene !== 'title') {
+      drawMenuBtn();
+      if (menuOpen) drawMenuPopup();
+    }
+    return;
+  }
+
+  // ── 엔딩
+  if (scene === 'ending_monologue') {
+    background(0);
+    endTimer++;
+    
+    for(let i = 0; i < endLines.length; i++) {
+      let line = endLines[i];
+      
+      if (endTimer < line.d)
+        break;
+
+      let t = endTimer - line.d;
+      let a = 255;
+
+      if (t < 30)
+        a = map(t, 0, 30, 0, 255);
+
+      fill(200,196,188,a);
+      textSize(14);
+      textAlign(CENTER,CENTER);
+      text(line.text, W/2, H/2 - 40 + i*40);
+    }
+
+    if (endTimer >= 460) {
+      scene = 'ending_eye';
+      seqTimer = 0;
+    }
+    if (scene !== 'title') {
+      drawMenuBtn();
+      if (menuOpen) drawMenuPopup();
+    }
+    return;
+  }
+
+  if (scene === 'ending_eye') {
+    background(18,16,14);
+
+    let open = constrain(map(seqTimer, 0, 90, 0, H/2), 0, H/2);
+
+    fill(0);
+    rect(0, 0, W, H/2 - open);
+    
+    fill(0);
+    rect(0, H/2+open, W, H/2 + 1);
+
+    stroke(8,6,6);
+    strokeWeight(3);
+    
+    line(0, H/2 - open, W, H/2 - open);
+    line(0, H/2 + open, W, H/2 + open);
+    
+    noStroke();
+
+    if (seqTimer >= 110) {
+      scene = 'ending_photo';
+      seqTimer = 0;
+    }
+    if (scene !== 'title') {
+      drawMenuBtn();
+      if (menuOpen) drawMenuPopup();
+    }
+    return;
+  }
+
+  if (scene === 'ending_photo') {
+    image(schoolImg, 0, 0, W, H);
+
+    if (seqTimer < 40) {
+      fill(0, 0, 0, map(seqTimer, 0, 40, 255, 0));
+      rect(0, 0, W, H);
+    }
+
+    if (seqTimer > 260) {
+      fill(0, 0, 0, map(seqTimer, 260, 300, 0, 255));
+      rect(0, 0, W, H);
+    }
+
+    if (seqTimer >= 300) {
+      scene = 'credits';
+      creditSY = H;
+      seqTimer = 0;
+    }
+    if (scene !== 'title') {
+      drawMenuBtn();
+      if (menuOpen) drawMenuPopup();
+    }
+    return;
+  }
+
+  if (scene === 'credits') {
+    background(0);
+    
+    creditSY -= 0.8;
+    
+    drawCredits();
+
+    if (creditSY < -getCreditH())
+      creditSY = H;
+    
+    if (scene !== 'title') {
+      drawMenuBtn();
+      if (menuOpen) drawMenuPopup();
+    }
+    return;
+  }
+
+  // ── 메인
+  if (scene === 'corridor') {
+
+    if (!sliding && !menuOpen)
+      updateCorridor();
+    else if (sliding)
+      updateSlide();
+
+    camX = lerp(camX, constrain(cat.x - W/2, 0, CW-W), 0.12);
+
+    drawCorridor();
+
+    if (sliding) {
+      fill(0, 0, 0, slideAlpha*0.85);
+      rect(0, 0, W, H);
+    }
+
+  } else if(scene === 'fadeout') {
+    background(0);
+    
+    fadeAlpha = min(fadeAlpha + 10, 255);
+    
+    fill(0, 0, 0, fadeAlpha);
+    rect(0, 0, W, H);
+
+    if (fadeAlpha >= 255) {
+      if (fadingTo === 'churu')
+        initChuru();
+      else if (fadingTo === 'prof')
+        initProf();
+      else if (fadingTo !== 'coopsket')
+        initCorReturn();
+
+      scene = 'fadein';
+    }
+  } else if(scene === 'fadein') {
+    if (fadingTo === 'classroom') 
+      drawClassroom(); 
+    else if (fadingTo === 'churu') 
+      drawChuru(); 
+    else if (fadingTo === 'prof') 
+      drawProf(); 
+    else if (fadingTo === 'coopsket') 
+      drawCoopsket(); 
+    else 
+      drawCorridor();
+
+    fadeAlpha = max(fadeAlpha-8, 0);
+    
+    fill(0, 0, 0, fadeAlpha);
+    rect(0, 0, W, H);
+
+    if (fadeAlpha <= 0)
+      scene = fadingTo === 'corridor' ? 'corridor' : fadingTo;
+  } else if (scene === 'classroom'){
+    if (!clsDead && !clsCleared)
+      updateCls();
+    if(clsDead)
+      clsDeadA = min(clsDeadA+4, 255);
+    drawClassroom();
+    if (clsDead) {
+      fill(0, 0, 0, clsDeadA);
+      rect(0, 0, W, H);
+      if (clsDeadA > 180) {
+        fill(180, 60, 60);
+        textSize(12);
+        textAlign(CENTER,CENTER);
+        text('...', W/2, H/2 - 10);
+
+        fill(120, 110, 90);
+        textSize(9);
+        text('[R] 재시작', W/2, H/2+14);
+      }
+    }
+
+    if (clsCleared) {
+      clsClearA = min(clsClearA + 5, 255);
+      fill(0, 0, 0, clsClearA);
+      rect(0, 0, W, H);
+
+      if (clsClearA >= 255) {
+        initCorReturn();
+        fadingTo = 'corridor';
+        scene = 'fadein';
+        fadeAlpha = 255;
+      }
+    }
+  } else if (scene === 'churu') {
+    drawChuru();
+  } else if (scene === 'prof') {
+    drawProf();
+  } else if (scene === 'coopsket') {
+    if (!menuOpen)
+      updateCs();
+    drawCoopsket();
+    if (csCleared) {
+      csClearA = min(csClearA + 2, 255);
+      noStroke();
+      for (let x = csEX; x < W; x++) {
+        fill(255, 252, 245, map(x, csEX, W, csClearA*0.95, csClearA*0.1));
+        rect(x, 0, 1, H);
+      }
+
+      if (csClearA > 200) {
+        let wo = constrain(map(csClearA, 200, 255, 0, 255), 0, 255);
+        fill(255, 255, 255, wo);
+        rect(0, 0, W, H);
+        
+        if(wo >= 255) {
+          scene = 'ending_monologue';
+          endTimer = 0;
+        }
+      }
+    }
+  }
+
+  if (scene !== 'title') {
+    drawInventoryUI();
+    drawMenuBtn();
+    
+    if (menuOpen)
+      drawMenuPopup();
+  }
+}
